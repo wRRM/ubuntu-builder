@@ -11,7 +11,7 @@ Requirements:
 - Docker Engine 24+ with the Compose plugin, or Docker Desktop
 - Enough Docker storage for the source ISO, output ISO, and temporary build data (allow roughly 3× the ISO size)
 
-The public image is published for Linux AMD64 and ARM64 at `ghcr.io/wrrm/ubuntu-builder`.
+The public image is published for Linux AMD64 at `ghcr.io/wrrm/ubuntu-builder`.
 
 ```bash
 docker pull ghcr.io/wrrm/ubuntu-builder:latest

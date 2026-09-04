@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101a18">
+  <title>Ubuntu ISO Builder</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Ubuntu ISO Builder home">
+      <span class="brand-mark" aria-hidden="true">U</span>
+      <span>Ubuntu ISO Builder</span>
+    </a>
+    <span id="health-pill" class="health-pill"><span></span> Ready</span>
+  </header>
+
+  <main class="shell">
+    <section class="hero">
+      <p class="eyebrow">BOOTABLE MEDIA WORKBENCH</p>
+      <h1>Make an Ubuntu image<br><em>your own.</em></h1>
+      <p class="lede">Start with an official Ubuntu ISO, add files anywhere in the image, tune its GRUB configuration, and export a new bootable ISO.</p>
+    </section>
+
+    <ol class="steps" aria-label="Build progress">
+      <li class="active"><span>01</span> Base image</li>
+      <li><span>02</span> Add files</li>
+      <li><span>03</span> Boot config</li>
+      <li><span>04</span> Build</li>
+    </ol>
+
+    <section class="workspace">
+      <article class="panel panel-wide">
+        <div class="panel-heading">
+          <div>
+            <p class="step-label">01 / BASE IMAGE</p>
+            <h2>Source ISO</h2>
+          </div>
+          <span id="base-badge" class="badge muted">Not loaded</span>
+        </div>
+        <label id="iso-dropzone" class="dropzone" for="iso-input">
+          <input id="iso-input" type="file" accept=".iso,application/x-iso9660-image" hidden>
+          <span class="upload-icon" aria-hidden="true">↑</span>
+          <strong>Drop an Ubuntu ISO here</strong>
+          <span>or click to choose a file</span>
+          <small>Large files are streamed directly to container storage</small>
+        </label>
+        <div id="base-summary" class="base-summary hidden"></div>
+        <div id="iso-progress" class="progress-wrap hidden" aria-live="polite">
+          <div class="progress-track"><span></span></div>
+          <p>Uploading and inspecting the image… <b id="iso-progress-label">0%</b></p>
+        </div>
+      </article>
+
+      <article class="panel panel-wide">
+        <div class="panel-heading">
+          <div>
+            <p class="step-label">02 / FILES</p>
+            <h2>Files to inject</h2>
+          </div>
+          <button id="add-files-button" class="button secondary" type="button">+ Add files</button>
+          <input id="files-input" type="file" multiple hidden>
+        </div>
+        <p class="panel-copy">Set an absolute destination for every file. Paths begin at the root of the ISO—not the installed operating system.</p>
+        <div id="pending-files" class="pending-files hidden"></div>
+        <div id="staged-files" class="file-list empty-state">No files staged yet.</div>
+      </article>
+
+      <article class="panel panel-editor">
+        <div class="panel-heading editor-heading">
+          <div>
+            <p class="step-label">03 / BOOT CONFIG</p>
+            <h2>GRUB settings</h2>
+          </div>
+          <button id="save-grub-button" class="button secondary" type="button" disabled>Save changes</button>
+        </div>
+        <div class="editor-toolbar">
+          <label for="grub-select">Configuration file</label>
+          <select id="grub-select" disabled><option>No GRUB file loaded</option></select>
+          <span id="grub-status">Upload an ISO to inspect GRUB.</span>
+        </div>
+        <label class="sr-only" for="grub-editor">GRUB configuration contents</label>
+        <textarea id="grub-editor" class="code-editor" spellcheck="false" disabled placeholder="# GRUB configuration will appear here"></textarea>
+      </article>
+
+      <article class="panel build-panel">
+        <div>
+          <p class="step-label">04 / OUTPUT</p>
+          <h2>Build the image</h2>
+          <p class="panel-copy">Boot metadata from the source is replayed into the new image. The source ISO is never modified.</p>
+        </div>
+        <label class="field-label" for="output-name">Output filename</label>
+        <div class="build-controls">
+          <input id="output-name" type="text" value="custom-ubuntu.iso" maxlength="120" aria-label="Output filename">
+          <button id="build-button" class="button primary" type="button" disabled>Build ISO <span>→</span></button>
+        </div>
+        <div id="build-result" class="build-result hidden" aria-live="polite"></div>
+        <details id="build-log" class="build-log hidden">
+          <summary>Build log</summary>
+          <pre></pre>
+        </details>
+      </article>
+    </section>
+
+    <aside class="notice">
+      <strong>Local tool.</strong>
+      <span>This service has no authentication. Keep it on <code>localhost</code> or place it behind your own access control.</span>
+    </aside>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</body>
+</html>
+

@@ -34,6 +34,14 @@ class IsoService:
             raise IsoToolError(detail[-4000:]) from exc
 
     def validate(self, iso_path: Path) -> None:
+        try:
+            with iso_path.open("rb") as source:
+                source.seek(16 * 2048 + 1)
+                signature = source.read(5)
+        except OSError as exc:
+            raise IsoToolError(f"Could not read the uploaded ISO: {exc}") from exc
+        if signature != b"CD001":
+            raise IsoToolError("The uploaded file is not an ISO 9660 image")
         self._run(["-report_about", "SORRY", "-indev", str(iso_path), "-toc"], timeout=60)
 
     def discover_grub(self, iso_path: Path) -> dict[str, str]:

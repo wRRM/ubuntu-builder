@@ -30,8 +30,8 @@ Using a named volume avoids Windows/Linux bind-mount permission and path differe
 ## Workflow
 
 1. Upload an Ubuntu `.iso`. The server validates it with `xorriso` and discovers every `grub.cfg` and `loopback.cfg` in the image.
-2. Add files and set their absolute ISO destinations. `/answer.txt`, for example, creates `answer.txt` at the top level of the ISO.
-3. Select and edit any discovered GRUB configuration, then save it.
+2. Add files. They are staged immediately at the root of the ISO using their filenames.
+3. Select and edit any discovered GRUB configuration, then save it. `grub-script-check` validates the syntax before changes are accepted.
 4. Choose an output name, build, and download the new ISO.
 
 Uploaded sources, staged files, edits, build status, and output images survive container restarts.

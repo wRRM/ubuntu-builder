@@ -3,7 +3,9 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from app.iso import IsoService
+import pytest
+
+from app.iso import IsoService, IsoToolError
 
 
 class DiscoveryIsoService(IsoService):
@@ -24,3 +26,9 @@ def test_discovers_quoted_xorriso_find_output(tmp_path):
         "/boot/grub/grub.cfg": "set timeout=10\n"
     }
 
+
+def test_rejects_file_without_iso9660_signature(tmp_path):
+    source = tmp_path / "renamed.iso"
+    source.write_text("not an ISO", encoding="utf-8")
+    with pytest.raises(IsoToolError, match="not an ISO 9660"):
+        IsoService().validate(source)

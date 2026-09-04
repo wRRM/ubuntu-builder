@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import errno
+
 from flask import Blueprint, current_app, jsonify, render_template, request, send_file
 from werkzeug.exceptions import RequestEntityTooLarge
 
+from .grub import GrubValidationError
 from .iso import IsoToolError
 
 
@@ -70,7 +73,14 @@ def save_grub():
     if not isinstance(body.get("path"), str) or not isinstance(body.get("content"), str):
         return jsonify(error="Path and content are required"), 400
     try:
-        return jsonify(store().update_grub(body["path"], body["content"]))
+        validation_message = current_app.extensions["grub_validator"].validate(body["content"])
+        updated = store().update_grub(body["path"], body["content"])
+        return jsonify(file=updated, validation={"valid": True, "message": validation_message})
+    except GrubValidationError as exc:
+        return jsonify(
+            error="GRUB validation failed",
+            validation={"valid": False, "message": str(exc)},
+        ), 422
     except KeyError:
         return jsonify(error="GRUB file not found in the base ISO"), 404
     except ValueError as exc:
@@ -97,3 +107,11 @@ def download(name: str):
 @api.app_errorhandler(RequestEntityTooLarge)
 def too_large(_error):
     return jsonify(error="Upload exceeds MAX_UPLOAD_BYTES"), 413
+
+
+@api.app_errorhandler(OSError)
+def storage_error(error: OSError):
+    if error.errno == errno.ENOSPC:
+        return jsonify(error="Not enough Docker storage to receive this ISO"), 507
+    current_app.logger.exception("Storage operation failed", exc_info=error)
+    return jsonify(error="A storage error interrupted the upload"), 500

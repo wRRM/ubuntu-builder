@@ -1,4 +1,4 @@
-const state = { project: null, pending: [], selectedGrub: null, grubDirty: false, pollTimer: null };
+const state = { project: null, selectedGrub: null, grubDirty: false, pollTimer: null };
 
 const $ = (selector) => document.querySelector(selector);
 const formatBytes = (bytes) => {
@@ -22,7 +22,11 @@ function toast(message, error = false) {
 async function api(url, options = {}) {
   const response = await fetch(url, options);
   const body = response.status === 204 ? null : await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body?.error || `Request failed (${response.status})`);
+  if (!response.ok) {
+    const error = new Error(body?.error || `Request failed (${response.status})`);
+    error.details = body;
+    throw error;
+  }
   return body;
 }
 
@@ -61,46 +65,6 @@ function fileDetails(item) {
   small.textContent = `${formatBytes(item.size)}${item.sha256 ? ` · ${shortHash(item.sha256)}` : ""}`;
   wrapper.append(strong, small);
   return wrapper;
-}
-
-function renderPending() {
-  const container = $("#pending-files");
-  container.classList.toggle("hidden", state.pending.length === 0);
-  container.replaceChildren();
-  state.pending.forEach((item, index) => {
-    const row = document.createElement("div");
-    row.className = "pending-row";
-    row.append(fileDetails({ name: item.file.name, size: item.file.size }));
-    const path = document.createElement("input");
-    path.className = "path-input";
-    path.value = item.destination;
-    path.setAttribute("aria-label", `ISO destination for ${item.file.name}`);
-    path.addEventListener("input", () => { item.destination = path.value; });
-    const remove = document.createElement("button");
-    remove.type = "button";
-    remove.className = "icon-button";
-    remove.textContent = "×";
-    remove.setAttribute("aria-label", `Remove ${item.file.name}`);
-    remove.addEventListener("click", () => { state.pending.splice(index, 1); renderPending(); });
-    row.append(path, remove);
-    container.append(row);
-  });
-  if (state.pending.length) {
-    const actions = document.createElement("div");
-    actions.className = "pending-actions";
-    const cancel = document.createElement("button");
-    cancel.className = "button secondary";
-    cancel.type = "button";
-    cancel.textContent = "Cancel";
-    cancel.addEventListener("click", () => { state.pending = []; renderPending(); });
-    const upload = document.createElement("button");
-    upload.className = "button primary";
-    upload.type = "button";
-    upload.textContent = `Stage ${state.pending.length} file${state.pending.length === 1 ? "" : "s"}`;
-    upload.addEventListener("click", uploadPending);
-    actions.append(cancel, upload);
-    container.append(actions);
-  }
 }
 
 function renderFiles() {
@@ -168,6 +132,7 @@ function renderGrub(preserveSelection = true) {
   editor.value = files.find((file) => file.path === state.selectedGrub).content;
   state.grubDirty = false;
   $("#save-grub-button").disabled = true;
+  $("#grub-status").className = "";
   $("#grub-status").textContent = `${files.length} configuration file${files.length === 1 ? "" : "s"} found`;
 }
 
@@ -222,7 +187,8 @@ function uploadIso(file) {
   request.addEventListener("load", () => {
     progress.classList.add("hidden");
     try {
-      const body = JSON.parse(request.responseText || "{}");
+      let body = {};
+      try { body = JSON.parse(request.responseText || "{}"); } catch { /* non-JSON server failure */ }
       if (request.status < 200 || request.status >= 300) throw new Error(body.error || "Upload failed");
       state.project = body;
       state.selectedGrub = null;
@@ -235,28 +201,28 @@ function uploadIso(file) {
   request.send(data);
 }
 
-function queueFiles(files) {
+async function stageFiles(files) {
+  if (!files.length) return;
+  const data = new FormData();
   for (const file of files) {
     const relative = file.webkitRelativePath || file.name;
-    state.pending.push({ file, destination: `/${relative.replaceAll("\\", "/")}` });
+    data.append("files", file);
+    data.append("destinations", `/${relative.replaceAll("\\", "/")}`);
   }
-  renderPending();
-}
-
-async function uploadPending() {
-  const data = new FormData();
-  state.pending.forEach((item) => {
-    data.append("files", item.file);
-    data.append("destinations", item.destination);
-  });
+  const button = $("#add-files-button");
+  button.disabled = true;
+  button.textContent = "Staging…";
   try {
     const body = await api("/api/files", { method: "POST", body: data });
     state.project.files.push(...body.files);
-    state.pending = [];
-    renderPending();
     renderFiles();
     toast(`${body.files.length} file${body.files.length === 1 ? "" : "s"} staged`);
-  } catch (error) { toast(error.message, true); }
+  } catch (error) {
+    toast(error.message, true);
+  } finally {
+    button.textContent = "+ Add files";
+    renderBase();
+  }
 }
 
 function schedulePoll() {
@@ -288,7 +254,10 @@ $("#iso-dropzone").addEventListener("drop", (event) => {
   uploadIso(event.dataTransfer.files[0]);
 });
 $("#add-files-button").addEventListener("click", () => $("#files-input").click());
-$("#files-input").addEventListener("change", (event) => { queueFiles(event.target.files); event.target.value = ""; });
+$("#files-input").addEventListener("change", (event) => {
+  stageFiles([...event.target.files]);
+  event.target.value = "";
+});
 $("#grub-select").addEventListener("change", (event) => {
   if (state.grubDirty && !confirm("Discard unsaved changes to this GRUB file?")) {
     event.target.value = state.selectedGrub;
@@ -302,6 +271,7 @@ $("#grub-select").addEventListener("change", (event) => {
 $("#grub-editor").addEventListener("input", () => {
   state.grubDirty = true;
   $("#save-grub-button").disabled = false;
+  $("#grub-status").className = "";
   $("#grub-status").textContent = "Unsaved changes";
 });
 $("#grub-editor").addEventListener("keydown", (event) => {
@@ -315,18 +285,24 @@ $("#grub-editor").addEventListener("keydown", (event) => {
 });
 $("#save-grub-button").addEventListener("click", async () => {
   try {
-    const updated = await api("/api/grub", {
+    const result = await api("/api/grub", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ path: state.selectedGrub, content: $("#grub-editor").value }),
     });
-    const index = state.project.grubFiles.findIndex((file) => file.path === updated.path);
-    state.project.grubFiles[index] = updated;
+    const index = state.project.grubFiles.findIndex((file) => file.path === result.file.path);
+    state.project.grubFiles[index] = result.file;
     state.grubDirty = false;
     $("#save-grub-button").disabled = true;
-    $("#grub-status").textContent = "Changes saved";
-    toast("GRUB changes saved");
-  } catch (error) { toast(error.message, true); }
+    $("#grub-status").className = "valid";
+    $("#grub-status").textContent = result.validation.message;
+    toast("GRUB syntax valid and changes saved");
+  } catch (error) {
+    const validation = error.details?.validation;
+    $("#grub-status").className = validation ? "invalid" : "";
+    $("#grub-status").textContent = validation?.message || error.message;
+    toast(error.message, true);
+  }
 });
 $("#build-button").addEventListener("click", async () => {
   if (state.grubDirty) return toast("Save your GRUB changes before building", true);

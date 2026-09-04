@@ -55,8 +55,16 @@ class ProjectStore:
         self.staged_dir = root / "staged"
         self.output_dir = root / "output"
         self.work_dir = root / "work"
+        self.upload_tmp_dir = root / "tmp"
         self.state_path = root / "state.json"
-        for directory in (root, self.input_dir, self.staged_dir, self.output_dir, self.work_dir):
+        for directory in (
+            root,
+            self.input_dir,
+            self.staged_dir,
+            self.output_dir,
+            self.work_dir,
+            self.upload_tmp_dir,
+        ):
             directory.mkdir(parents=True, exist_ok=True)
         self.iso = iso_service or IsoService()
         self.lock = threading.RLock()

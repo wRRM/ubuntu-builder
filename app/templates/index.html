@@ -17,12 +17,6 @@
   </header>
 
   <main class="shell">
-    <section class="hero">
-      <p class="eyebrow">BOOTABLE MEDIA WORKBENCH</p>
-      <h1>Make an Ubuntu image<br><em>your own.</em></h1>
-      <p class="lede">Start with an official Ubuntu ISO, add files anywhere in the image, tune its GRUB configuration, and export a new bootable ISO.</p>
-    </section>
-
     <ol class="steps" aria-label="Build progress">
       <li class="active"><span>01</span> Base image</li>
       <li><span>02</span> Add files</li>
@@ -62,8 +56,7 @@
           <button id="add-files-button" class="button secondary" type="button">+ Add files</button>
           <input id="files-input" type="file" multiple hidden>
         </div>
-        <p class="panel-copy">Set an absolute destination for every file. Paths begin at the root of the ISO—not the installed operating system.</p>
-        <div id="pending-files" class="pending-files hidden"></div>
+        <p class="panel-copy">Selected files are staged immediately at the root of the ISO.</p>
         <div id="staged-files" class="file-list empty-state">No files staged yet.</div>
       </article>
 
@@ -113,4 +106,3 @@
   <script src="{{ url_for('static', filename='app.js') }}" defer></script>
 </body>
 </html>
-

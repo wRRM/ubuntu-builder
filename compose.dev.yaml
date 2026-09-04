@@ -1,0 +1,6 @@
+services:
+  builder:
+    build:
+      context: .
+    image: ubuntu-iso-builder:dev
+    pull_policy: never

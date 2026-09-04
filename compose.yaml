@@ -2,9 +2,8 @@ name: ubuntu-iso-builder
 
 services:
   builder:
-    build:
-      context: .
-    image: ubuntu-iso-builder:0.1.0
+    image: ghcr.io/wrrm/ubuntu-builder:latest
+    pull_policy: always
     restart: unless-stopped
     ports:
       - "127.0.0.1:${WEB_PORT:-8080}:8080"
@@ -33,4 +32,3 @@ services:
 
 volumes:
   builder_data:
-

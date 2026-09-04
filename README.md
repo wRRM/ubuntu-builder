@@ -4,15 +4,18 @@ A local web application for creating a customized, bootable Ubuntu ISO. Upload a
 
 The build runs entirely inside Docker and does **not** need `--privileged`, loop devices, or host mounts. It uses `xorriso` boot-image replay so the same Compose setup works with Docker Engine on Linux and Docker Desktop on Windows.
 
-## Start it
+## Install and start it
 
 Requirements:
 
 - Docker Engine 24+ with the Compose plugin, or Docker Desktop
 - Enough Docker storage for the source ISO, output ISO, and temporary build data (allow roughly 3× the ISO size)
 
+The public image is published for Linux AMD64 and ARM64 at `ghcr.io/wrrm/ubuntu-builder`.
+
 ```bash
-docker compose up --build
+docker pull ghcr.io/wrrm/ubuntu-builder:latest
+docker compose up -d
 ```
 
 Open [http://localhost:8080](http://localhost:8080). Stop the service with `docker compose down`; uploaded data and output images remain in the `builder_data` named volume.
@@ -22,7 +25,8 @@ Open [http://localhost:8080](http://localhost:8080). Stop the service with `dock
 Run the same command from PowerShell in this directory:
 
 ```powershell
-docker compose up --build
+docker pull ghcr.io/wrrm/ubuntu-builder:latest
+docker compose up -d
 ```
 
 Using a named volume avoids Windows/Linux bind-mount permission and path differences. No WSL-specific setup is required when Docker Desktop is using Linux containers.
@@ -74,9 +78,9 @@ python3 -m venv .venv
 Container checks:
 
 ```bash
-docker compose config
-docker compose build
-docker compose up -d
+docker compose -f compose.yaml -f compose.dev.yaml config
+docker compose -f compose.yaml -f compose.dev.yaml build
+docker compose -f compose.yaml -f compose.dev.yaml up -d
 docker compose ps
 ```
 

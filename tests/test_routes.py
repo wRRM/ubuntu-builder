@@ -114,8 +114,16 @@ def test_autoinstall_updates_validates_and_saves_grub(tmp_path):
     )
 
     assert response.status_code == 200
-    assert response.json["autoinstall"] == {"added": 1, "directives": 1}
+    assert response.json["autoinstall"] == {
+        "added": 1,
+        "bootChanged": True,
+        "bootEntry": "Install Ubuntu",
+        "directives": 1,
+    }
     assert "linux /casper/vmlinuz quiet autoinstall ---" in response.json["file"]["content"]
+    assert "set default='Install Ubuntu'" in response.json["file"]["content"]
+    assert "set timeout_style=hidden" in response.json["file"]["content"]
+    assert "set timeout=0" in response.json["file"]["content"]
     assert client.get("/api/state").json["grubFiles"][0]["content"] == response.json["file"]["content"]
 
 

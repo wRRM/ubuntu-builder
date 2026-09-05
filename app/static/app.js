@@ -43,8 +43,8 @@ const translations = {
     saveChanges: "Spara ändringar",
     autoinstall: "Autoinstall",
     enablingAutoinstall: "Aktiverar…",
-    autoinstallEnabled: "Autoinstall har aktiverats och GRUB-ändringarna har sparats",
-    autoinstallAlreadyEnabled: "Autoinstall var redan aktiverat · GRUB-syntaxen är giltig",
+    autoinstallEnabled: "Autoinstall har aktiverats med direktstart · GRUB-ändringarna har sparats",
+    autoinstallAlreadyEnabled: "Autoinstall och direktstart var redan aktiverade · GRUB-syntaxen är giltig",
     configurationFile: "Konfigurationsfil",
     noGrubLoaded: "Ingen GRUB-fil inläst",
     noGrubFound: "Ingen GRUB-konfiguration hittades",
@@ -122,8 +122,8 @@ const translations = {
     saveChanges: "Save changes",
     autoinstall: "Autoinstall",
     enablingAutoinstall: "Enabling…",
-    autoinstallEnabled: "Autoinstall enabled and GRUB changes saved",
-    autoinstallAlreadyEnabled: "Autoinstall was already enabled · GRUB syntax valid",
+    autoinstallEnabled: "Autoinstall enabled with direct boot · GRUB changes saved",
+    autoinstallAlreadyEnabled: "Autoinstall and direct boot were already enabled · GRUB syntax valid",
     configurationFile: "Configuration file",
     noGrubLoaded: "No GRUB file loaded",
     noGrubFound: "No GRUB configuration found",
@@ -224,7 +224,9 @@ const swedishErrors = {
   "GRUB validator is unavailable in this container": "GRUB-valideraren är inte tillgänglig i containern",
   "GRUB validation timed out": "GRUB-valideringen tog för lång tid",
   "Select a grub.cfg file to enable autoinstall": "Välj en grub.cfg-fil för att aktivera autoinstall",
-  "No Linux boot directives were found in this grub.cfg": "Inga Linux-startdirektiv hittades i denna grub.cfg",
+  "No Ubuntu installer boot directives were found in this grub.cfg": "Inga startdirektiv för Ubuntu-installationen hittades i denna grub.cfg",
+  "No Install Ubuntu menu entry was found in this grub.cfg": "Ingen Install Ubuntu-startpost hittades i denna grub.cfg",
+  "The Install Ubuntu menu entry title cannot be safely selected": "Namnet på Install Ubuntu-startposten kan inte väljas säkert",
   "xorriso is not installed in the container": "xorriso är inte installerat i containern",
   "ISO operation timed out": "ISO-åtgärden tog för lång tid",
   "xorriso did not create an output ISO": "xorriso skapade ingen ISO-fil",
@@ -452,7 +454,9 @@ async function enableGrubAutoinstall() {
     state.grubDirty = false;
     $("#save-grub-button").disabled = true;
     $("#grub-status").className = "valid";
-    const messageKey = result.autoinstall.added ? "autoinstallEnabled" : "autoinstallAlreadyEnabled";
+    const messageKey = result.autoinstall.added || result.autoinstall.bootChanged
+      ? "autoinstallEnabled"
+      : "autoinstallAlreadyEnabled";
     $("#grub-status").textContent = t(messageKey);
     toast(t(messageKey));
   } catch (error) {

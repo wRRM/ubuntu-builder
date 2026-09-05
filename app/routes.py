@@ -121,12 +121,17 @@ def add_grub_autoinstall():
         return jsonify(error="Select a grub.cfg file to enable autoinstall"), 400
 
     try:
-        updated_content, added_count, directive_count = enable_autoinstall(content)
+        updated_content, added_count, directive_count, boot_entry, boot_changed = enable_autoinstall(content)
         validation_message = current_app.extensions["grub_validator"].validate(updated_content)
         updated = store().update_grub(path, updated_content)
         return jsonify(
             file=updated,
-            autoinstall={"added": added_count, "directives": directive_count},
+            autoinstall={
+                "added": added_count,
+                "bootChanged": boot_changed,
+                "bootEntry": boot_entry,
+                "directives": directive_count,
+            },
             validation={"valid": True, "message": validation_message},
         )
     except AutoinstallGrubError as exc:

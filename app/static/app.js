@@ -25,6 +25,7 @@ const translations = {
     downloadingDesktop: "Hämtar senaste Ubuntu Desktop. Det kan ta flera minuter…",
     downloadingServer: "Hämtar senaste Ubuntu Server. Det kan ta flera minuter…",
     latestLoaded: "Senaste Ubuntu-ISO:n har hämtats och verifierats",
+    downloadOutputFirst: "Ladda ned den färdiga ISO:n innan du startar ett nytt bygge.",
     or: "eller",
     dropIso: "Släpp en Ubuntu-ISO här",
     chooseFile: "eller klicka för att välja en fil",
@@ -40,6 +41,10 @@ const translations = {
     bootConfigLabel: "03 / STARTKONFIGURATION",
     grubSettings: "GRUB-inställningar",
     saveChanges: "Spara ändringar",
+    autoinstall: "Autoinstall",
+    enablingAutoinstall: "Aktiverar…",
+    autoinstallEnabled: "Autoinstall har aktiverats och GRUB-ändringarna har sparats",
+    autoinstallAlreadyEnabled: "Autoinstall var redan aktiverat · GRUB-syntaxen är giltig",
     configurationFile: "Konfigurationsfil",
     noGrubLoaded: "Ingen GRUB-fil inläst",
     noGrubFound: "Ingen GRUB-konfiguration hittades",
@@ -99,6 +104,7 @@ const translations = {
     downloadingDesktop: "Downloading the latest Ubuntu Desktop. This can take several minutes…",
     downloadingServer: "Downloading the latest Ubuntu Server. This can take several minutes…",
     latestLoaded: "The latest Ubuntu ISO was downloaded and verified",
+    downloadOutputFirst: "Download the completed ISO before starting a new build.",
     or: "or",
     dropIso: "Drop an Ubuntu ISO here",
     chooseFile: "or click to choose a file",
@@ -114,6 +120,10 @@ const translations = {
     bootConfigLabel: "03 / BOOT CONFIG",
     grubSettings: "GRUB settings",
     saveChanges: "Save changes",
+    autoinstall: "Autoinstall",
+    enablingAutoinstall: "Enabling…",
+    autoinstallEnabled: "Autoinstall enabled and GRUB changes saved",
+    autoinstallAlreadyEnabled: "Autoinstall was already enabled · GRUB syntax valid",
     configurationFile: "Configuration file",
     noGrubLoaded: "No GRUB file loaded",
     noGrubFound: "No GRUB configuration found",
@@ -166,6 +176,8 @@ const state = {
   sourceError: null,
   staging: false,
   replacing: false,
+  autoinstallBusy: false,
+  outputDownloadPending: false,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -211,6 +223,8 @@ const swedishErrors = {
   "GRUB configuration cannot exceed 2 MiB": "GRUB-konfigurationen får inte överstiga 2 MiB",
   "GRUB validator is unavailable in this container": "GRUB-valideraren är inte tillgänglig i containern",
   "GRUB validation timed out": "GRUB-valideringen tog för lång tid",
+  "Select a grub.cfg file to enable autoinstall": "Välj en grub.cfg-fil för att aktivera autoinstall",
+  "No Linux boot directives were found in this grub.cfg": "Inga Linux-startdirektiv hittades i denna grub.cfg",
   "xorriso is not installed in the container": "xorriso är inte installerat i containern",
   "ISO operation timed out": "ISO-åtgärden tog för lång tid",
   "xorriso did not create an output ISO": "xorriso skapade ingen ISO-fil",
@@ -280,18 +294,23 @@ function applyLanguage({ persist = true } = {}) {
 function renderBase() {
   const base = state.project.baseIso;
   const buildBusy = ["queued", "running"].includes(state.project.build.status);
+  const outputWaiting = state.project.build.status === "complete" && state.project.build.output;
+  const sourceLocked = state.sourceBusy || buildBusy || outputWaiting;
   const choosingSource = !base || state.replacing;
   $("#base-badge").textContent = base ? t("loaded") : t("notLoaded");
   $("#base-badge").className = `badge ${base ? "ready" : "muted"}`;
   $("#source-options").classList.toggle("hidden", !choosingSource);
-  $("#iso-input").disabled = state.sourceBusy || buildBusy;
-  $("#iso-dropzone").classList.toggle("is-disabled", state.sourceBusy || buildBusy);
-  $("#ubuntu-edition").disabled = state.sourceBusy || buildBusy;
+  $("#iso-input").disabled = sourceLocked;
+  $("#iso-dropzone").classList.toggle("is-disabled", sourceLocked);
+  $("#ubuntu-edition").disabled = sourceLocked;
   const downloadButton = $("#download-ubuntu-button");
-  downloadButton.disabled = state.sourceBusy || buildBusy;
+  downloadButton.disabled = sourceLocked;
   downloadButton.textContent = state.sourceBusy ? t("downloadingIso") : t("downloadIso");
   const sourceStatus = $("#source-status");
-  if (state.sourceMode === "download") {
+  if (outputWaiting && choosingSource) {
+    sourceStatus.className = "source-status";
+    sourceStatus.textContent = t("downloadOutputFirst");
+  } else if (state.sourceMode === "download") {
     sourceStatus.className = "source-status";
     sourceStatus.textContent = t($("#ubuntu-edition").value === "server" ? "downloadingServer" : "downloadingDesktop");
   } else if (state.sourceMode === "error") {
@@ -388,6 +407,7 @@ function renderGrub(preserveSelection = true) {
     editor.value = "";
     $("#grub-status").textContent = state.project.baseIso ? t("noGrubPathsFound") : t("uploadToInspectGrub");
     $("#save-grub-button").disabled = true;
+    renderAutoinstallButton();
     return;
   }
   files.forEach((file) => {
@@ -403,9 +423,47 @@ function renderGrub(preserveSelection = true) {
   editor.value = files.find((file) => file.path === state.selectedGrub).content;
   state.grubDirty = false;
   $("#save-grub-button").disabled = true;
+  renderAutoinstallButton();
   $("#grub-status").textContent = state.language === "sv"
     ? `${files.length} ${files.length === 1 ? "konfigurationsfil hittad" : "konfigurationsfiler hittade"}`
     : `${files.length} configuration file${files.length === 1 ? "" : "s"} found`;
+}
+
+function renderAutoinstallButton() {
+  const button = $("#autoinstall-button");
+  const buildBusy = state.project && ["queued", "running"].includes(state.project.build.status);
+  const hasGrubCfg = state.selectedGrub?.split("/").pop() === "grub.cfg";
+  button.disabled = !hasGrubCfg || buildBusy || state.autoinstallBusy;
+  button.textContent = t(state.autoinstallBusy ? "enablingAutoinstall" : "autoinstall");
+}
+
+async function enableGrubAutoinstall() {
+  state.autoinstallBusy = true;
+  renderAutoinstallButton();
+  try {
+    const result = await api("/api/grub/autoinstall", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: state.selectedGrub, content: $("#grub-editor").value }),
+    });
+    const index = state.project.grubFiles.findIndex((file) => file.path === result.file.path);
+    state.project.grubFiles[index] = result.file;
+    $("#grub-editor").value = result.file.content;
+    state.grubDirty = false;
+    $("#save-grub-button").disabled = true;
+    $("#grub-status").className = "valid";
+    const messageKey = result.autoinstall.added ? "autoinstallEnabled" : "autoinstallAlreadyEnabled";
+    $("#grub-status").textContent = t(messageKey);
+    toast(t(messageKey));
+  } catch (error) {
+    const validation = error.details?.validation;
+    $("#grub-status").className = validation ? "invalid" : "";
+    $("#grub-status").textContent = localizeMessage(validation?.message || error.message);
+    toast(localizeMessage(error.message), true);
+  } finally {
+    state.autoinstallBusy = false;
+    renderAutoinstallButton();
+  }
 }
 
 function renderBuild() {
@@ -428,12 +486,19 @@ function renderBuild() {
     const arrow = document.createElement("span");
     arrow.textContent = "↓";
     link.append(arrow);
+    link.addEventListener("click", () => {
+      state.outputDownloadPending = true;
+      schedulePoll();
+    });
     result.append(message, link);
   }
   log.classList.toggle("hidden", !build.log?.length);
   log.querySelector("pre").textContent = (build.log || []).join("\n");
   $("#build-button").disabled = !state.project.baseIso || ["queued", "running"].includes(build.status) || state.replacing;
-  if (["queued", "running"].includes(build.status)) schedulePoll();
+  if (build.status === "idle") state.outputDownloadPending = false;
+  if (["queued", "running"].includes(build.status) || (state.outputDownloadPending && build.status === "complete")) {
+    schedulePoll();
+  }
 }
 
 function render() {
@@ -595,6 +660,7 @@ $("#grub-select").addEventListener("change", (event) => {
   $("#grub-editor").value = state.project.grubFiles.find((file) => file.path === state.selectedGrub).content;
   state.grubDirty = false;
   $("#save-grub-button").disabled = true;
+  renderAutoinstallButton();
 });
 $("#grub-editor").addEventListener("input", () => {
   state.grubDirty = true;
@@ -632,6 +698,7 @@ $("#save-grub-button").addEventListener("click", async () => {
     toast(localizeMessage(error.message), true);
   }
 });
+$("#autoinstall-button").addEventListener("click", enableGrubAutoinstall);
 $("#build-button").addEventListener("click", async () => {
   if (state.grubDirty) return toast(t("saveBeforeBuild"), true);
   try {

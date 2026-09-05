@@ -36,9 +36,10 @@ Using a named volume avoids Windows/Linux bind-mount permission and path differe
 1. Upload an Ubuntu `.iso`, or download the latest released Ubuntu Desktop/Server AMD64 ISO directly from Canonical. Official downloads are checked against Canonical's `SHA256SUMS`. The server then validates the image with `xorriso` and discovers every `grub.cfg` and `loopback.cfg` in the image.
 2. Add files. They are staged immediately at the root of the ISO using their filenames.
 3. Select and edit any discovered GRUB configuration, then save it. `grub-script-check` validates the syntax before changes are accepted.
+   The **Autoinstall** button on a selected `grub.cfg` adds the `autoinstall` kernel argument to every Linux boot entry, validates the result, and saves it. When `/autoinstall.yaml` is staged at the ISO root, Subiquity discovers it from the installation medium.
 4. Choose an output name, build, and download the new ISO.
 
-Uploaded sources, staged files, edits, build status, and output images survive container restarts.
+Uploaded sources, staged files, edits, build status, and an undownloaded output image survive container restarts. After a successful build, the source ISO and staged files are deleted automatically. The completed ISO is deleted after its download response finishes, so persistent container storage does not accumulate old images.
 
 The interface uses Swedish by default. Use the language control in the header to switch to English; the choice is saved in the browser.
 

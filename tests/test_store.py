@@ -30,6 +30,11 @@ class FakeIsoService:
                 target.write(source.read_bytes())
 
 
+class FailingIsoService(FakeIsoService):
+    def build(self, base_iso: Path, output_iso: Path, mappings, log=None) -> None:
+        raise RuntimeError("build failed")
+
+
 def wait_for_build(store: ProjectStore) -> dict:
     for _ in range(100):
         build = store.snapshot()["build"]
@@ -70,6 +75,31 @@ def test_store_upload_edit_stage_and_build(tmp_path):
     output = store.output_path("result.iso")
     assert output is not None
     assert b"/hello.txthello" in output.read_bytes()
+    state = store.snapshot()
+    assert state["baseIso"] is None
+    assert state["files"] == []
+    assert state["grubFiles"] == []
+    assert not (tmp_path / "input" / "base.iso").exists()
+    assert list((tmp_path / "staged").iterdir()) == []
+
+    assert store.consume_output("result.iso") is True
+    assert store.output_path("result.iso") is None
+    assert store.snapshot()["build"]["status"] == "idle"
+    assert store.consume_output("result.iso") is False
+
+
+def test_failed_build_preserves_source_and_staged_files(tmp_path):
+    store = ProjectStore(tmp_path, iso_service=FailingIsoService())
+    store.set_base_iso(io.BytesIO(b"iso-data"), "ubuntu.iso")
+    staged = store.add_files([(io.BytesIO(b"retry me"), "retry.txt", "/retry.txt")])
+
+    store.start_build("failed.iso")
+    build = wait_for_build(store)
+
+    assert build["status"] == "failed"
+    assert store.snapshot()["baseIso"]["name"] == "ubuntu.iso"
+    assert (tmp_path / "input" / "base.iso").is_file()
+    assert (tmp_path / "staged" / staged[0]["id"]).is_file()
 
 
 def test_duplicate_and_traversal_destinations_are_rejected(tmp_path):

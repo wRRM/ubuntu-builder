@@ -73,6 +73,7 @@ class ProjectStore:
         if self.state["build"]["status"] in {"queued", "running"}:
             self.state["build"].update(status="failed", error="The container stopped during the previous build")
             self._save()
+        self._reconcile_media()
 
     def _load(self) -> dict:
         if not self.state_path.exists():
@@ -91,6 +92,57 @@ class ProjectStore:
     def snapshot(self) -> dict:
         with self.lock:
             return deepcopy(self.state)
+
+    @staticmethod
+    def _remove_directory_files(directory: Path, keep: set[str] | None = None) -> None:
+        keep = keep or set()
+        for path in directory.iterdir():
+            if path.name not in keep:
+                if path.is_dir():
+                    shutil.rmtree(path, ignore_errors=True)
+                else:
+                    path.unlink(missing_ok=True)
+
+    def _reconcile_media(self) -> None:
+        """Remove orphaned media while preserving files referenced by saved state."""
+        with self.lock:
+            changed = False
+            if self.state["baseIso"] and not (self.input_dir / "base.iso").is_file():
+                self.state["baseIso"] = None
+                self.state["files"] = []
+                self.state["grubFiles"] = []
+                changed = True
+
+            output = self.state["build"].get("output")
+            output_name = safe_output_name(output.get("name", "")) if output else None
+            if output and not (self.output_dir / output_name).is_file():
+                self.state["build"] = deepcopy(DEFAULT_STATE["build"])
+                output = None
+                output_name = None
+                changed = True
+
+            input_keep = {"base.iso"} if self.state["baseIso"] else set()
+            staged_keep = {item["id"] for item in self.state["files"]} if self.state["baseIso"] else set()
+            output_keep = {output_name} if output_name else set()
+            self._remove_directory_files(self.input_dir, input_keep)
+            self._remove_directory_files(self.staged_dir, staged_keep)
+            self._remove_directory_files(self.output_dir, output_keep)
+            self._remove_directory_files(self.work_dir)
+            self._remove_directory_files(self.upload_tmp_dir)
+            if changed:
+                self._save()
+
+    def _discard_output_locked(self) -> None:
+        output = self.state["build"].get("output")
+        if output:
+            (self.output_dir / safe_output_name(output.get("name", ""))).unlink(missing_ok=True)
+
+    def _discard_source_material_locked(self) -> None:
+        self._remove_directory_files(self.input_dir)
+        self._remove_directory_files(self.staged_dir)
+        self.state["baseIso"] = None
+        self.state["files"] = []
+        self.state["grubFiles"] = []
 
     @staticmethod
     def _copy_stream(
@@ -145,6 +197,7 @@ class ProjectStore:
                     raise ValueError(
                         "Remove the staged GRUB path before replacing the ISO: " + ", ".join(conflicting_paths)
                     )
+                self._discard_output_locked()
                 os.replace(temporary, final_path)
                 self.state["baseIso"] = {
                     "name": Path(original_name).name or "base.iso",
@@ -271,6 +324,7 @@ class ProjectStore:
                 final_output = self.output_dir / output_name
                 os.replace(temporary_output, final_output)
                 with self.lock:
+                    self._discard_source_material_locked()
                     self.state["build"].update(
                         status="complete",
                         output={"name": output_name, "size": final_output.stat().st_size},
@@ -289,3 +343,16 @@ class ProjectStore:
         safe_name = safe_output_name(name)
         candidate = self.output_dir / safe_name
         return candidate if safe_name == name and candidate.is_file() else None
+
+    def consume_output(self, name: str) -> bool:
+        safe_name = safe_output_name(name)
+        if safe_name != name:
+            return False
+        with self.lock:
+            output = self.state["build"].get("output")
+            if not output or output.get("name") != name:
+                return False
+            (self.output_dir / safe_name).unlink(missing_ok=True)
+            self.state["build"] = deepcopy(DEFAULT_STATE["build"])
+            self._save()
+            return True

@@ -91,7 +91,10 @@
         </div>
         <div class="editor-toolbar">
           <label for="grub-select" data-i18n="configurationFile">Konfigurationsfil</label>
-          <select id="grub-select" disabled><option>Ingen GRUB-fil inläst</option></select>
+          <div class="grub-config-controls">
+            <select id="grub-select" disabled><option>Ingen GRUB-fil inläst</option></select>
+            <button id="autoinstall-button" class="button secondary" type="button" disabled data-i18n="autoinstall">Autoinstall</button>
+          </div>
           <span id="grub-status">Ladda upp en ISO för att granska GRUB.</span>
         </div>
         <label class="sr-only" for="grub-editor" data-i18n="grubContents">GRUB-konfigurationens innehåll</label>

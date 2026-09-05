@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import errno
+from pathlib import PurePosixPath
 
 from flask import Blueprint, current_app, jsonify, render_template, request, send_file
 from werkzeug.exceptions import RequestEntityTooLarge
 
+from .autoinstall import AutoinstallGrubError, enable_autoinstall
 from .grub import GrubValidationError
 from .iso import IsoToolError
 from .ubuntu import UbuntuReleaseError
@@ -108,6 +110,38 @@ def save_grub():
         return jsonify(error=str(exc)), 400
 
 
+@api.post("/api/grub/autoinstall")
+def add_grub_autoinstall():
+    body = request.get_json(silent=True) or {}
+    path = body.get("path")
+    content = body.get("content")
+    if not isinstance(path, str) or not isinstance(content, str):
+        return jsonify(error="Path and content are required"), 400
+    if PurePosixPath(path).name != "grub.cfg":
+        return jsonify(error="Select a grub.cfg file to enable autoinstall"), 400
+
+    try:
+        updated_content, added_count, directive_count = enable_autoinstall(content)
+        validation_message = current_app.extensions["grub_validator"].validate(updated_content)
+        updated = store().update_grub(path, updated_content)
+        return jsonify(
+            file=updated,
+            autoinstall={"added": added_count, "directives": directive_count},
+            validation={"valid": True, "message": validation_message},
+        )
+    except AutoinstallGrubError as exc:
+        return jsonify(error=str(exc)), 400
+    except GrubValidationError as exc:
+        return jsonify(
+            error="GRUB validation failed",
+            validation={"valid": False, "message": str(exc)},
+        ), 422
+    except KeyError:
+        return jsonify(error="GRUB file not found in the base ISO"), 404
+    except ValueError as exc:
+        return jsonify(error=str(exc)), 400
+
+
 @api.post("/api/build")
 def build():
     body = request.get_json(silent=True) or {}
@@ -119,10 +153,33 @@ def build():
 
 @api.get("/api/output/<name>")
 def download(name: str):
-    output = store().output_path(name)
+    project_store = store()
+    output = project_store.output_path(name)
     if not output:
         return jsonify(error="Output ISO not found"), 404
-    return send_file(output, as_attachment=True, download_name=name, mimetype="application/x-iso9660-image")
+    response = send_file(
+        output,
+        as_attachment=True,
+        download_name=name,
+        mimetype="application/x-iso9660-image",
+        conditional=False,
+    )
+    if request.method == "GET":
+        source = response.response
+
+        def stream_and_consume():
+            completed = False
+            try:
+                yield from source
+                completed = True
+            finally:
+                if hasattr(source, "close"):
+                    source.close()
+                if completed:
+                    project_store.consume_output(name)
+
+        response.response = stream_and_consume()
+    return response
 
 
 @api.app_errorhandler(RequestEntityTooLarge)

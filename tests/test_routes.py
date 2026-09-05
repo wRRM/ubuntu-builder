@@ -4,6 +4,7 @@ import errno
 import io
 import shutil
 import tempfile
+import time
 from pathlib import Path
 
 from app import create_app
@@ -61,6 +62,7 @@ def test_health_and_initial_state(tmp_path):
     assert b'<html lang="sv">' in page.data
     assert "Hämta senaste Ubuntu".encode() in page.data
     assert b'id="language-toggle"' in page.data
+    assert b'id="autoinstall-button"' in page.data
 
 
 def test_upload_edit_and_stage_routes(tmp_path):
@@ -92,6 +94,63 @@ def test_upload_edit_and_stage_routes(tmp_path):
     assert response.status_code == 201
     file_id = response.json["files"][0]["id"]
     assert client.delete(f"/api/files/{file_id}").status_code == 204
+
+
+def test_autoinstall_updates_validates_and_saves_grub(tmp_path):
+    app = make_app(tmp_path)
+    client = app.test_client()
+    client.post(
+        "/api/base-iso",
+        data={"iso": (io.BytesIO(b"iso"), "ubuntu.iso")},
+        content_type="multipart/form-data",
+    )
+
+    response = client.post(
+        "/api/grub/autoinstall",
+        json={
+            "path": "/boot/grub/grub.cfg",
+            "content": "menuentry 'Install Ubuntu' {\n  linux /casper/vmlinuz quiet ---\n}\n",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json["autoinstall"] == {"added": 1, "directives": 1}
+    assert "linux /casper/vmlinuz quiet autoinstall ---" in response.json["file"]["content"]
+    assert client.get("/api/state").json["grubFiles"][0]["content"] == response.json["file"]["content"]
+
+
+def test_autoinstall_rejects_non_grub_config(tmp_path):
+    app = make_app(tmp_path)
+    response = app.test_client().post(
+        "/api/grub/autoinstall",
+        json={"path": "/boot/grub/loopback.cfg", "content": "linux /casper/vmlinuz ---\n"},
+    )
+    assert response.status_code == 400
+
+
+def test_download_consumes_completed_output(tmp_path):
+    app = make_app(tmp_path)
+    client = app.test_client()
+    client.post(
+        "/api/base-iso",
+        data={"iso": (io.BytesIO(b"iso"), "ubuntu.iso")},
+        content_type="multipart/form-data",
+    )
+    client.post("/api/build", json={"name": "one-shot.iso"})
+    for _ in range(100):
+        if client.get("/api/state").json["build"]["status"] == "complete":
+            break
+        time.sleep(0.01)
+    else:
+        raise AssertionError("build did not finish")
+
+    response = client.get("/api/output/one-shot.iso", buffered=True)
+    assert response.status_code == 200
+    assert response.data == b"iso"
+    response.close()
+
+    assert client.get("/api/output/one-shot.iso").status_code == 404
+    assert client.get("/api/state").json["build"]["status"] == "idle"
 
 
 def test_rejects_bad_iso_extension(tmp_path):

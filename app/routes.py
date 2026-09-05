@@ -7,6 +7,7 @@ from werkzeug.exceptions import RequestEntityTooLarge
 
 from .grub import GrubValidationError
 from .iso import IsoToolError
+from .ubuntu import UbuntuReleaseError
 
 
 api = Blueprint("api", __name__)
@@ -42,6 +43,26 @@ def upload_base_iso():
         return jsonify(store().set_base_iso(upload.stream, upload.filename))
     except (ValueError, IsoToolError) as exc:
         return jsonify(error=str(exc)), 400
+
+
+@api.post("/api/base-iso/latest")
+def download_latest_ubuntu():
+    body = request.get_json(silent=True) or {}
+    edition = body.get("edition", "desktop")
+    if edition not in {"desktop", "server"}:
+        return jsonify(error="Edition must be desktop or server"), 400
+    try:
+        return jsonify(
+            current_app.extensions["ubuntu_release_service"].download_latest(
+                store(),
+                edition,
+                max_bytes=current_app.config["MAX_CONTENT_LENGTH"],
+            )
+        )
+    except (ValueError, IsoToolError) as exc:
+        return jsonify(error=str(exc)), 400
+    except UbuntuReleaseError as exc:
+        return jsonify(error=str(exc)), 502
 
 
 @api.post("/api/files")

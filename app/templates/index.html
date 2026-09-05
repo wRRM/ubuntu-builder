@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="sv">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,96 +9,117 @@
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="/" aria-label="Ubuntu ISO Builder home">
+    <a class="brand" href="/" aria-label="Ubuntu ISO Builder startsida" data-i18n-aria-label="homeLabel">
       <span class="brand-mark" aria-hidden="true">U</span>
       <span>Ubuntu ISO Builder</span>
     </a>
-    <span id="health-pill" class="health-pill"><span></span> Ready</span>
+    <div class="topbar-actions">
+      <span id="health-pill" class="health-pill"><span aria-hidden="true"></span><span id="health-text" data-i18n="ready">Redo</span></span>
+      <button id="language-toggle" class="language-toggle" type="button" aria-label="Byt till engelska">English</button>
+    </div>
   </header>
 
   <main class="shell">
-    <ol class="steps" aria-label="Build progress">
-      <li class="active"><span>01</span> Base image</li>
-      <li><span>02</span> Add files</li>
-      <li><span>03</span> Boot config</li>
-      <li><span>04</span> Build</li>
+    <ol class="steps" aria-label="Byggsteg" data-i18n-aria-label="buildProgress">
+      <li class="active"><span class="step-number">01</span> <span data-i18n="baseImage">Basavbild</span></li>
+      <li><span class="step-number">02</span> <span data-i18n="addFilesStep">Lägg till filer</span></li>
+      <li><span class="step-number">03</span> <span data-i18n="bootConfig">Startkonfiguration</span></li>
+      <li><span class="step-number">04</span> <span data-i18n="buildStep">Bygg</span></li>
     </ol>
 
     <section class="workspace">
       <article class="panel panel-wide">
         <div class="panel-heading">
           <div>
-            <p class="step-label">01 / BASE IMAGE</p>
-            <h2>Source ISO</h2>
+            <p class="step-label" data-i18n="baseImageLabel">01 / BASAVBILD</p>
+            <h2 data-i18n="sourceIso">Käll-ISO</h2>
           </div>
-          <span id="base-badge" class="badge muted">Not loaded</span>
+          <span id="base-badge" class="badge muted">Inte inläst</span>
         </div>
-        <label id="iso-dropzone" class="dropzone" for="iso-input">
-          <input id="iso-input" type="file" accept=".iso,application/x-iso9660-image" hidden>
-          <span class="upload-icon" aria-hidden="true">↑</span>
-          <strong>Drop an Ubuntu ISO here</strong>
-          <span>or click to choose a file</span>
-          <small>Large files are streamed directly to container storage</small>
-        </label>
+        <div id="source-options">
+          <div class="official-source">
+            <div>
+              <strong data-i18n="latestUbuntu">Hämta senaste Ubuntu</strong>
+              <small data-i18n="canonicalHint">Hämtas från Canonical och verifieras med SHA-256.</small>
+            </div>
+            <div class="official-source-controls">
+              <label class="sr-only" for="ubuntu-edition" data-i18n="ubuntuEdition">Ubuntu-utgåva</label>
+              <select id="ubuntu-edition">
+                <option value="desktop" data-i18n="desktopEdition">Desktop (AMD64)</option>
+                <option value="server" data-i18n="serverEdition">Server (AMD64)</option>
+              </select>
+              <button id="download-ubuntu-button" class="button secondary" type="button" data-i18n="downloadIso" disabled>Hämta ISO</button>
+            </div>
+          </div>
+          <div class="source-divider"><span data-i18n="or">eller</span></div>
+          <label id="iso-dropzone" class="dropzone" for="iso-input">
+            <input id="iso-input" type="file" accept=".iso,application/x-iso9660-image" hidden>
+            <span class="upload-icon" aria-hidden="true">↑</span>
+            <strong data-i18n="dropIso">Släpp en Ubuntu-ISO här</strong>
+            <span data-i18n="chooseFile">eller klicka för att välja en fil</span>
+            <small data-i18n="streamingHint">Stora filer strömmas direkt till containerns lagring</small>
+          </label>
+          <p id="source-status" class="source-status hidden" aria-live="polite"></p>
+        </div>
         <div id="base-summary" class="base-summary hidden"></div>
         <div id="iso-progress" class="progress-wrap hidden" aria-live="polite">
           <div class="progress-track"><span></span></div>
-          <p>Uploading and inspecting the image… <b id="iso-progress-label">0%</b></p>
+          <p><span data-i18n="uploadingInspecting">Laddar upp och granskar avbilden…</span> <b id="iso-progress-label">0%</b></p>
         </div>
       </article>
 
       <article class="panel panel-wide">
         <div class="panel-heading">
           <div>
-            <p class="step-label">02 / FILES</p>
-            <h2>Files to inject</h2>
+            <p class="step-label" data-i18n="filesLabel">02 / FILER</p>
+            <h2 data-i18n="filesToInject">Filer att lägga till</h2>
           </div>
-          <button id="add-files-button" class="button secondary" type="button">+ Add files</button>
+          <button id="add-files-button" class="button secondary" type="button">+ Lägg till filer</button>
           <input id="files-input" type="file" multiple hidden>
         </div>
-        <p class="panel-copy">Selected files are staged immediately at the root of the ISO.</p>
-        <div id="staged-files" class="file-list empty-state">No files staged yet.</div>
+        <p class="panel-copy" data-i18n="filesHint">Valda filer placeras direkt i ISO-avbildens rot.</p>
+        <div id="staged-files" class="file-list empty-state">Inga filer har lagts till ännu.</div>
       </article>
 
       <article class="panel panel-editor">
         <div class="panel-heading editor-heading">
           <div>
-            <p class="step-label">03 / BOOT CONFIG</p>
-            <h2>GRUB settings</h2>
+            <p class="step-label" data-i18n="bootConfigLabel">03 / STARTKONFIGURATION</p>
+            <h2 data-i18n="grubSettings">GRUB-inställningar</h2>
           </div>
-          <button id="save-grub-button" class="button secondary" type="button" disabled>Save changes</button>
+          <button id="save-grub-button" class="button secondary" type="button" disabled data-i18n="saveChanges">Spara ändringar</button>
         </div>
         <div class="editor-toolbar">
-          <label for="grub-select">Configuration file</label>
-          <select id="grub-select" disabled><option>No GRUB file loaded</option></select>
-          <span id="grub-status">Upload an ISO to inspect GRUB.</span>
+          <label for="grub-select" data-i18n="configurationFile">Konfigurationsfil</label>
+          <select id="grub-select" disabled><option>Ingen GRUB-fil inläst</option></select>
+          <span id="grub-status">Ladda upp en ISO för att granska GRUB.</span>
         </div>
-        <label class="sr-only" for="grub-editor">GRUB configuration contents</label>
-        <textarea id="grub-editor" class="code-editor" spellcheck="false" disabled placeholder="# GRUB configuration will appear here"></textarea>
+        <label class="sr-only" for="grub-editor" data-i18n="grubContents">GRUB-konfigurationens innehåll</label>
+        <textarea id="grub-editor" class="code-editor" spellcheck="false" disabled placeholder="# GRUB-konfigurationen visas här" data-i18n-placeholder="grubPlaceholder"></textarea>
       </article>
 
       <article class="panel build-panel">
         <div>
-          <p class="step-label">04 / OUTPUT</p>
-          <h2>Build the image</h2>
-          <p class="panel-copy">Boot metadata from the source is replayed into the new image. The source ISO is never modified.</p>
+          <p class="step-label" data-i18n="outputLabel">04 / UTDATA</p>
+          <h2 data-i18n="buildImage">Bygg avbilden</h2>
+          <p class="panel-copy" data-i18n="buildHint">Startmetadata från källan återanvänds i den nya avbilden. Käll-ISO:n ändras aldrig.</p>
         </div>
-        <label class="field-label" for="output-name">Output filename</label>
+        <label class="field-label" for="output-name" data-i18n="outputFilename">Filnamn för utdata</label>
         <div class="build-controls">
-          <input id="output-name" type="text" value="custom-ubuntu.iso" maxlength="120" aria-label="Output filename">
-          <button id="build-button" class="button primary" type="button" disabled>Build ISO <span>→</span></button>
+          <input id="output-name" type="text" value="custom-ubuntu.iso" maxlength="120" aria-label="Filnamn för utdata" data-i18n-aria-label="outputFilename">
+          <button id="build-button" class="button primary" type="button" disabled><span data-i18n="buildIso">Bygg ISO</span> <span>→</span></button>
         </div>
         <div id="build-result" class="build-result hidden" aria-live="polite"></div>
         <details id="build-log" class="build-log hidden">
-          <summary>Build log</summary>
+          <summary data-i18n="buildLog">Bygglogg</summary>
           <pre></pre>
         </details>
       </article>
     </section>
 
     <aside class="notice">
-      <strong>Local tool.</strong>
-      <span>This service has no authentication. Keep it on <code>localhost</code> or place it behind your own access control.</span>
+      <strong data-i18n="localTool">Lokalt verktyg.</strong>
+      <span><span data-i18n="securityNoticeBefore">Tjänsten har ingen autentisering. Behåll den på</span> <code>localhost</code> <span data-i18n="securityNoticeAfter">eller placera den bakom egen åtkomstkontroll.</span></span>
     </aside>
   </main>
 

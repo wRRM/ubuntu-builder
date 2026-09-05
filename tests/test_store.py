@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import hashlib
 import shutil
 import time
 from pathlib import Path
@@ -92,3 +93,24 @@ def test_uploaded_file_cannot_conflict_with_grub_editor(tmp_path):
     store.set_base_iso(io.BytesIO(b"iso-data"), "ubuntu.iso")
     with pytest.raises(ValueError, match="GRUB editor"):
         store.add_files([(io.BytesIO(b"bad"), "grub.cfg", "/boot/grub/grub.cfg")])
+
+
+def test_downloaded_iso_checksum_and_size_are_enforced(tmp_path):
+    store = ProjectStore(tmp_path, iso_service=FakeIsoService())
+    payload = b"iso-data"
+    checksum = hashlib.sha256(payload).hexdigest()
+    store.set_base_iso(
+        io.BytesIO(payload),
+        "ubuntu.iso",
+        expected_sha256=checksum,
+        max_bytes=len(payload),
+    )
+    with pytest.raises(ValueError, match="SHA256SUMS"):
+        store.set_base_iso(
+            io.BytesIO(payload),
+            "ubuntu.iso",
+            expected_sha256="0" * 64,
+            max_bytes=len(payload),
+        )
+    with pytest.raises(ValueError, match="MAX_UPLOAD_BYTES"):
+        store.set_base_iso(io.BytesIO(payload), "ubuntu.iso", max_bytes=len(payload) - 1)

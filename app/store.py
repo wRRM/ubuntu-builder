@@ -93,7 +93,12 @@ class ProjectStore:
             return deepcopy(self.state)
 
     @staticmethod
-    def _copy_stream(stream: BinaryIO, destination: Path) -> tuple[int, str]:
+    def _copy_stream(
+        stream: BinaryIO,
+        destination: Path,
+        *,
+        max_bytes: int | None = None,
+    ) -> tuple[int, str]:
         digest = hashlib.sha256()
         size = 0
         try:
@@ -102,20 +107,31 @@ class ProjectStore:
                     target.write(chunk)
                     digest.update(chunk)
                     size += len(chunk)
+                    if max_bytes is not None and size > max_bytes:
+                        raise ValueError("Downloaded ISO exceeds MAX_UPLOAD_BYTES")
         except Exception:
             destination.unlink(missing_ok=True)
             raise
         return size, digest.hexdigest()
 
-    def set_base_iso(self, stream: BinaryIO, original_name: str) -> dict:
+    def set_base_iso(
+        self,
+        stream: BinaryIO,
+        original_name: str,
+        *,
+        expected_sha256: str | None = None,
+        max_bytes: int | None = None,
+    ) -> dict:
         with self.lock:
             if self.state["build"]["status"] in {"queued", "running"}:
                 raise ValueError("Wait for the current build before replacing the base ISO")
         temporary = self.input_dir / f"upload-{uuid.uuid4().hex}.iso"
         try:
-            size, sha256 = self._copy_stream(stream, temporary)
+            size, sha256 = self._copy_stream(stream, temporary, max_bytes=max_bytes)
             if size == 0:
                 raise ValueError("The uploaded ISO is empty")
+            if expected_sha256 and sha256.lower() != expected_sha256.lower():
+                raise ValueError("The downloaded ISO does not match Canonical's SHA256SUMS")
             self.iso.validate(temporary)
             grub = self.iso.discover_grub(temporary)
             final_path = self.input_dir / "base.iso"

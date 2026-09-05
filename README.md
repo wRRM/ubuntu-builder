@@ -33,12 +33,14 @@ Using a named volume avoids Windows/Linux bind-mount permission and path differe
 
 ## Workflow
 
-1. Upload an Ubuntu `.iso`. The server validates it with `xorriso` and discovers every `grub.cfg` and `loopback.cfg` in the image.
+1. Upload an Ubuntu `.iso`, or download the latest released Ubuntu Desktop/Server AMD64 ISO directly from Canonical. Official downloads are checked against Canonical's `SHA256SUMS`. The server then validates the image with `xorriso` and discovers every `grub.cfg` and `loopback.cfg` in the image.
 2. Add files. They are staged immediately at the root of the ISO using their filenames.
 3. Select and edit any discovered GRUB configuration, then save it. `grub-script-check` validates the syntax before changes are accepted.
 4. Choose an output name, build, and download the new ISO.
 
 Uploaded sources, staged files, edits, build status, and output images survive container restarts.
+
+The interface uses Swedish by default. Use the language control in the header to switch to English; the choice is saved in the browser.
 
 ## Important path distinction
 

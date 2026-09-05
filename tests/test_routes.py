@@ -31,11 +31,22 @@ class RejectingGrubValidator:
         raise GrubValidationError("GRUB configuration:2: syntax error")
 
 
-def make_app(tmp_path, *, grub_validator=None):
+class FakeUbuntuReleaseService:
+    def __init__(self) -> None:
+        self.edition = None
+
+    def download_latest(self, store, edition: str, *, max_bytes: int):
+        assert max_bytes > 0
+        self.edition = edition
+        return store.set_base_iso(io.BytesIO(b"iso"), f"ubuntu-latest-{edition}-amd64.iso")
+
+
+def make_app(tmp_path, *, grub_validator=None, ubuntu_release_service=None):
     return create_app(
         data_dir=tmp_path,
         iso_service=FakeIsoService(),
         grub_validator=grub_validator or FakeGrubValidator(),
+        ubuntu_release_service=ubuntu_release_service or FakeUbuntuReleaseService(),
     )
 
 
@@ -45,7 +56,11 @@ def test_health_and_initial_state(tmp_path):
     assert tempfile.tempdir == str(tmp_path / "tmp")
     assert client.get("/health").json == {"status": "ok"}
     assert client.get("/api/state").json["baseIso"] is None
-    assert client.get("/").status_code == 200
+    page = client.get("/")
+    assert page.status_code == 200
+    assert b'<html lang="sv">' in page.data
+    assert "Hämta senaste Ubuntu".encode() in page.data
+    assert b'id="language-toggle"' in page.data
 
 
 def test_upload_edit_and_stage_routes(tmp_path):
@@ -86,6 +101,21 @@ def test_rejects_bad_iso_extension(tmp_path):
         data={"iso": (io.BytesIO(b"not an iso"), "notes.txt")},
         content_type="multipart/form-data",
     )
+    assert response.status_code == 400
+
+
+def test_downloads_latest_official_ubuntu_iso(tmp_path):
+    releases = FakeUbuntuReleaseService()
+    app = make_app(tmp_path, ubuntu_release_service=releases)
+    response = app.test_client().post("/api/base-iso/latest", json={"edition": "server"})
+    assert response.status_code == 200
+    assert releases.edition == "server"
+    assert response.json["baseIso"]["name"] == "ubuntu-latest-server-amd64.iso"
+
+
+def test_rejects_unknown_official_ubuntu_edition(tmp_path):
+    app = make_app(tmp_path)
+    response = app.test_client().post("/api/base-iso/latest", json={"edition": "other"})
     assert response.status_code == 400
 
 

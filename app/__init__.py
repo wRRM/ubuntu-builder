@@ -9,9 +9,16 @@ from flask import Flask
 from .grub import GrubValidator
 from .routes import api
 from .store import ProjectStore
+from .ubuntu import UbuntuReleaseService
 
 
-def create_app(*, data_dir: str | Path | None = None, iso_service=None, grub_validator=None) -> Flask:
+def create_app(
+    *,
+    data_dir: str | Path | None = None,
+    iso_service=None,
+    grub_validator=None,
+    ubuntu_release_service=None,
+) -> Flask:
     app = Flask(__name__)
     app.config.update(
         MAX_CONTENT_LENGTH=int(os.getenv("MAX_UPLOAD_BYTES", str(16 * 1024**3))),
@@ -26,5 +33,6 @@ def create_app(*, data_dir: str | Path | None = None, iso_service=None, grub_val
     tempfile.tempdir = str(project_store.upload_tmp_dir)
     app.extensions["project_store"] = project_store
     app.extensions["grub_validator"] = grub_validator or GrubValidator()
+    app.extensions["ubuntu_release_service"] = ubuntu_release_service or UbuntuReleaseService()
     app.register_blueprint(api)
     return app

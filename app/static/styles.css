@@ -47,8 +47,12 @@ button, label[for], select { cursor: pointer; }
 
 .brand { display: flex; align-items: center; gap: 12px; color: inherit; text-decoration: none; font-weight: 700; }
 .brand-mark { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--orange-2); font-size: 15px; }
+.topbar-actions { display: flex; align-items: center; gap: 10px; }
 .health-pill, .badge { display: inline-flex; align-items: center; gap: 8px; padding: 7px 11px; border: 1px solid #30413c; border-radius: 999px; color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .03em; }
 .health-pill span { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 12px #4ade80; }
+.health-pill span:last-child { width: auto; height: auto; border-radius: 0; background: transparent; box-shadow: none; }
+.language-toggle { min-height: 34px; padding: 0 12px; border: 1px solid #3a4a45; border-radius: 999px; color: var(--ink); background: #18231f; font-size: 12px; font-weight: 750; transition: .15s ease; }
+.language-toggle:hover { border-color: var(--orange); color: #fff; }
 .badge.ready { color: var(--mint); border-color: rgba(167, 243, 208, .26); background: rgba(167, 243, 208, .06); }
 .badge.muted { color: var(--dim); }
 
@@ -57,7 +61,7 @@ button, label[for], select { cursor: pointer; }
 
 .steps { display: grid; grid-template-columns: repeat(4, 1fr); margin: 0 0 24px; padding: 0; list-style: none; border-bottom: 1px solid var(--line); }
 .steps li { position: relative; padding: 0 0 17px; color: var(--dim); font-size: 13px; font-weight: 650; }
-.steps li span { margin-right: 7px; color: inherit; font: 600 11px var(--mono); }
+.steps li .step-number { margin-right: 7px; color: inherit; font: 600 11px var(--mono); }
 .steps li.active { color: var(--ink); }
 .steps li.active::after { content: ""; position: absolute; bottom: -1px; left: 0; width: 100%; height: 2px; background: var(--orange); }
 
@@ -70,10 +74,21 @@ button, label[for], select { cursor: pointer; }
 .step-label { margin: 0; }
 .panel-copy { margin: -8px 0 20px; color: var(--muted); font-size: 13px; line-height: 1.6; }
 
+.official-source { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 15px 16px; border: 1px solid var(--line); border-radius: 10px; background: rgba(7, 12, 11, .28); }
+.official-source strong, .official-source small { display: block; }
+.official-source small { margin-top: 4px; color: var(--dim); font-size: 11px; line-height: 1.45; }
+.official-source-controls { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+#ubuntu-edition { min-height: 40px; padding: 0 30px 0 11px; border: 1px solid #34443f; border-radius: 8px; outline: 0; color: var(--ink); background: #0d1513; font-size: 12px; }
+#ubuntu-edition:focus { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(255, 113, 69, .09); }
+.source-divider { display: flex; align-items: center; gap: 12px; margin: 13px 0; color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .12em; }
+.source-divider::before, .source-divider::after { content: ""; height: 1px; flex: 1; background: var(--line); }
+.source-status { margin: 12px 0 0; color: var(--muted); font-size: 12px; text-align: center; }
+.source-status.error { color: var(--red); }
 .dropzone { display: flex; min-height: 176px; flex-direction: column; align-items: center; justify-content: center; gap: 7px; border: 1px dashed #3c4e48; border-radius: 11px; background: rgba(7, 12, 11, .34); color: var(--muted); transition: .18s ease; }
 .dropzone strong { color: var(--ink); }
 .dropzone small { margin-top: 8px; color: var(--dim); }
 .dropzone:hover, .dropzone.dragging { border-color: var(--orange); background: rgba(255, 113, 69, .045); }
+.dropzone.is-disabled { pointer-events: none; opacity: .45; }
 .upload-icon { display: grid; place-items: center; width: 36px; height: 36px; margin-bottom: 4px; border: 1px solid #41554e; border-radius: 9px; color: var(--orange); font-size: 20px; }
 .base-summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: rgba(7, 12, 11, .33); }
 .base-summary strong, .base-summary span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -141,7 +156,7 @@ button, label[for], select { cursor: pointer; }
   .build-panel { min-height: 340px; }
   .field-label { margin-top: auto; }
   .steps li { font-size: 0; }
-  .steps li span { font-size: 11px; }
+  .steps li .step-number { font-size: 11px; }
 }
 
 @media (max-width: 560px) {
@@ -149,6 +164,8 @@ button, label[for], select { cursor: pointer; }
   .shell { width: calc(100% - 20px); padding-top: 26px; }
   .panel { padding: 20px; }
   .panel-heading { align-items: flex-start; }
+  .official-source { align-items: stretch; flex-direction: column; }
+  .official-source-controls { display: grid; grid-template-columns: 1fr auto; }
   .file-row { grid-template-columns: minmax(0, 1fr) auto; }
   .file-row .file-path { grid-column: 1 / -1; grid-row: 2; }
   .editor-toolbar { grid-template-columns: 1fr; }
@@ -156,4 +173,8 @@ button, label[for], select { cursor: pointer; }
   .code-editor { height: 330px; font-size: 12px; }
   .notice { display: block; }
   .notice strong { display: block; margin-bottom: 5px; }
+}
+
+@media (max-width: 420px) {
+  .health-pill { display: none; }
 }
